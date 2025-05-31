@@ -29,8 +29,8 @@ my-fastapi-app
 1. Clone the repository:
 
    ```
-   git clone <repository-url>
-   cd my-fastapi-app
+   git clone https://github.com/Rezwan66/web-auto-server.git
+   cd web-auto-server
    ```
 
 2. Install the required dependencies:

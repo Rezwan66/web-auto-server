@@ -28,6 +28,7 @@ async def generate_llm_response(prompt: str):
             # print("Generated text:", generated_text)
             content = result.get("response") or result.get("message", {}).get("content", "")
             # print("Generated text: ", extract_code_block(content))
+            print('utils: result without code extraction:',content)
             print('utils: result:',extract_code_block(content))
             return extract_code_block(content)
     except httpx.TimeoutException:
