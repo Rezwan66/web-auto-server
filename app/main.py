@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Imported Routes
-from app.routes import form_fill_routes, llm_request_routes
+from app.routes import form_fill_routes, llm_request_routes, automation_routes
 
 app = FastAPI() # Starts the App
 
@@ -22,6 +22,7 @@ app.add_middleware(
 # Import all route APIs
 app.include_router(form_fill_routes.router, prefix="/formfill", tags=["FORM FILL"])
 app.include_router(llm_request_routes.router, prefix="/llm", tags=["LLM"])
+app.include_router(automation_routes.router, prefix="/automation", tags=["Automation"])
 
 # Mock database (replace with real DB later)
 fake_db = []
