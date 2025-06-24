@@ -45,24 +45,35 @@ async def generate_llm_response(prompt: str, language: str):
         print(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
-def generate_with_ollama(prompt: str) -> str:
+def generate_with_ollama(prompt: str) -> dict:
     """
-    Uses ollama.chat to generate a response, then extracts the first
-    code block. If no code block is found, returns the raw response.
+    Calls ollama.chat, extracts the first code block, and returns
+    (code, total_duration_ms).
     """
     try:
         # Use ollama.chat to generate a chat response
         res = ollama.chat(
             model=OLLAMA_MODEL,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{
+                "role": "user", 
+                "content": f"Generate a Chrome Selenium script in Python that automates the following task:\n{prompt}"
+            }]
         )
         # Extract the generated text
+        # print("ollama response -->",{res.get('model'),res.get('total_duration'), api_time_ms})
+        # Ollama’s timing metric in nanoseconds – convert to ms
+        total_ns = res.get("total_duration", 0)
+        total_ms = total_ns // 1_000_000
         full_text = res.get("message", {}).get("content", "")
         if not full_text:
             raise HTTPException(status_code=500, detail="Ollama returned no content.")
         # Try to extract the code block:
         code_only = extract_code_block(full_text)
-        return code_only if code_only is not None else full_text
+        return {
+            "code": code_only if code_only is not None else full_text,
+            "total_duration": total_ms
+        }
+    
     except Exception as e:
         # Convert any exception into a proper HTTPException
         raise HTTPException(status_code=500, detail=f"Ollama error: {str(e)}")

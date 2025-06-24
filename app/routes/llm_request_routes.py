@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 import ollama
 from app.utils.ollama_client import generate_llm_response, generate_with_ollama
 from app.models.llm_request_model import LLMRequest
+import time
 
 router = APIRouter()
 
@@ -13,9 +14,15 @@ router = APIRouter()
 @router.post('/generate')
 def generate(request: LLMRequest):
     # request.prompt has the user’s raw prompt (from JSON body)
-    generated_code = generate_with_ollama(request.prompt)
-    print(generated_code)
-    return {"response": generated_code}
+    start = time.perf_counter() # start api timer
+    result = generate_with_ollama(request.prompt)
+    api_time_ms = int((time.perf_counter() - start) * 1000)
+    print(result,api_time_ms)
+    return {
+        "response": result["code"],
+        "total_duration": result["total_duration"],
+        "api_time_ms": api_time_ms
+    }
 
 # Using httpx / Requests - better control, flexibility
 @router.post('/generate-llm')
