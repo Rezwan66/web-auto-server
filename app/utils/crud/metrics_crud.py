@@ -4,7 +4,8 @@ from app.models.metrics_model import ExperimentMetrics
 from bson import ObjectId
 
 # db = get_database()
-metrics_collection = db.experiment_metrics
+test_metrics_collection = db.experiment_metrics
+metrics_collection = db.automation_metrics
 
 async def create_metric(metric: ExperimentMetrics):
     # return await metrics_collection.insert_one(metric.model_dump())

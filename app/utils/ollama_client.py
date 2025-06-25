@@ -51,12 +51,21 @@ def generate_with_ollama(prompt: str) -> dict:
     (code, total_duration_ms).
     """
     try:
+        # Modify the prompt with additional instructions
+        detailed_prompt = f"""
+        Generate a Chrome Selenium script in Python that automates the following task:
+        {prompt}
+        
+        - Use `id` selectors where possible, or use `name` or `CSS selectors` as fallback only if necessary.
+        - Add explicit waits to ensure elements are fully loaded before interacting with them.
+        - Handle potential errors like elements not found or timeouts.
+        """
         # Use ollama.chat to generate a chat response
         res = ollama.chat(
             model=OLLAMA_MODEL,
             messages=[{
                 "role": "user", 
-                "content": f"Generate a Chrome Selenium script in Python that automates the following task:\n{prompt}"
+                "content": detailed_prompt
             }]
         )
         # Extract the generated text
@@ -71,7 +80,8 @@ def generate_with_ollama(prompt: str) -> dict:
         code_only = extract_code_block(full_text)
         return {
             "code": code_only if code_only is not None else full_text,
-            "total_duration": total_ms
+            "total_duration": total_ms,
+            "model": OLLAMA_MODEL
         }
     
     except Exception as e:

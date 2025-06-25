@@ -22,9 +22,10 @@ class ExperimentMetrics(BaseModel):
     selectors: Optional[List[str]] = None
     metadata: Optional[dict] = None
     success: Optional[bool] = None
-    total_duration_ms: float  # in milliseconds
+    generation_duration_ms: float  # in milliseconds
     api_time_ms: float
     quality: Optional[int] = None  # 1-5 scale
     notes: Optional[str] = None
     generated_code: Optional[str] = None #Field for generated code
+    model: Optional[str] = None # LLM Model Used
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

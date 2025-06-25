@@ -25,7 +25,7 @@ async def create_test_metric():
         prompt="Test prompt",
         url="http://localhost:5173/form",
         success=True,
-        total_duration_ms=123456789,
+        generation_duration_ms=123456789,
         api_time_ms=150
     )
     # Save to MongoDB

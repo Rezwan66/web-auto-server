@@ -32,18 +32,19 @@ async def generate(request: LLMRequest):
     metric = ExperimentMetrics(
         use_case="Form Filling",
         context_level="A",
-        iteration=1,
+        iteration=5,
         prompt=request.prompt,
-        total_duration_ms=result["total_duration"],
+        generation_duration_ms=result["total_duration"],
         api_time_ms=api_time_ms,
-        generated_code=result["code"]  # Save the generated code
+        generated_code=result["code"],  # Save the generated code
+        model=result["model"] # LLM Model Used
     )
     # Log to MongoDB (await the insert)
     insert_response = await create_metric(metric)
 
     return {
         "response": result["code"],
-        "total_duration_ms": result["total_duration"],
+        "generation_duration_ms": result["total_duration"],
         "api_time_ms": api_time_ms,
         "metric_id": str(insert_response.inserted_id)
     }
