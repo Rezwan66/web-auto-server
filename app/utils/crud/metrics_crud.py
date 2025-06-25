@@ -38,3 +38,14 @@ async def get_metric_by_id(metric_id: str) -> dict | None:
     # Convert Mongo’s _id to string and rename
     doc["id"] = str(doc.pop("_id"))
     return doc
+
+async def update_metric_success(metric_id: str, success: bool):
+    """
+    Sets the 'success' field of the given metric to True/False.
+    Returns the update result.
+    """
+    result = await metrics_collection.update_one(
+        {"_id": ObjectId(metric_id)},
+        {"$set": {"success": success}}
+    )
+    return result
