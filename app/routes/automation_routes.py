@@ -1,4 +1,4 @@
-import subprocess, tempfile, os, sys
+import subprocess, tempfile, os, sys, json
 from fastapi import APIRouter, HTTPException
 from app.utils.automation import fill_form
 from app.utils.crud.metrics_crud import update_metric_success
@@ -67,3 +67,24 @@ async def run_python_code(request: dict):
             os.remove(tmp_filename)
         await update_metric_success(metric_id, False)
         raise HTTPException(status_code=500, detail=f"Error running code: {str(e)}")
+
+@router.post("/run-visual-automation")
+async def run_visual_automation(request: dict):
+    url     = request.get("url")
+    actions = request.get("actions")
+    if not url or not actions:
+        raise HTTPException(400, "Provide 'url' and 'actions'")
+
+    # Launch the Python Playwright script
+    proc = subprocess.Popen(
+        [sys.executable, os.path.join("scripts", "visual_automation.py")],
+        stdin=subprocess.PIPE
+    )
+
+    if proc.stdin is None:
+        raise HTTPException(500, "Subprocess did not create stdin")
+    
+    proc.stdin.write(json.dumps({"url": url, "actions": actions}).encode())
+    proc.stdin.close()
+
+    return {"status": "started"}

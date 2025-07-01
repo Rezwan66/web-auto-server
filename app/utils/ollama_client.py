@@ -5,6 +5,7 @@ import httpx
 from dotenv import load_dotenv
 import time
 from app.utils.extract_code import extract_code_block
+import json
 
 load_dotenv()
 
@@ -45,20 +46,29 @@ async def generate_llm_response(prompt: str, language: str):
         print(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
-def generate_with_ollama(prompt: str) -> dict:
+def generate_with_ollama(prompt: str, metadata: dict) -> dict:
     """
-    Calls ollama.chat, extracts the first code block, and returns
-    (code, total_duration_ms).
+    Calls ollama.chat with a detailed prompt (including metadata if given),
+    extracts the first code block, and returns { code, total_duration, model }.
     """
     try:
-        # Modify the prompt with additional instructions
+        # Build the detailed prompt
+        meta_block = f"\n\nPage metadata:\n{json.dumps(metadata, indent=2)}" if metadata else ""
         detailed_prompt = f"""
-        Generate a Chrome Selenium script in Python that automates the following task:
-        {prompt}
-        
-        - Use `id` selectors where possible, or use `name` or `CSS selectors` as fallback only if necessary.
-        - Add explicit waits to ensure elements are fully loaded before interacting with them.
-        - Handle potential errors like elements not found or timeouts.
+            Task: Produce a JSON array called "actions" for Playwright to automate this form.
+
+            Prompt: {prompt}
+
+            {meta_block}
+
+            Each action must be:
+            - {{ "type": "fill", "selector": "<selector>", "value": "<text>" }}
+            - {{ "type": "click", "selector": "<selector>" }}
+            - Only generate selectors which are present in the metadata
+            
+            Only output valid JSON like:
+            {{ "actions": [ ... ] }}
+
         """
         # Use ollama.chat to generate a chat response
         res = ollama.chat(
@@ -68,21 +78,24 @@ def generate_with_ollama(prompt: str) -> dict:
                 "content": detailed_prompt
             }]
         )
+        payload = json.loads(res["message"]["content"])
+        return payload["actions"]
         # Extract the generated text
         # print("ollama response -->",{res.get('model'),res.get('total_duration'), api_time_ms})
         # Ollama’s timing metric in nanoseconds – convert to ms
         total_ns = res.get("total_duration", 0)
         total_ms = total_ns // 1_000_000
-        full_text = res.get("message", {}).get("content", "")
-        if not full_text:
-            raise HTTPException(status_code=500, detail="Ollama returned no content.")
+        # full_text = res.get("message", {}).get("content", "")
+        # if not full_text:
+        #     raise HTTPException(status_code=500, detail="Ollama returned no content.")
         # Try to extract the code block:
-        code_only = extract_code_block(full_text)
-        return {
-            "code": code_only if code_only is not None else full_text,
-            "total_duration": total_ms,
-            "model": OLLAMA_MODEL
-        }
+        # code_only = extract_code_block(full_text)
+        # return {
+        #     # "code": code_only if code_only is not None else full_text,
+        #     payload: payload["actions"],
+        #     "total_duration": total_ms,
+        #     "model": OLLAMA_MODEL
+        # }
     
     except Exception as e:
         # Convert any exception into a proper HTTPException
