@@ -27,23 +27,23 @@ async def generate(request: LLMRequest):
     # request.prompt has the user’s raw prompt (from JSON body)
     metadata = request.metadata or {}
     start = time.perf_counter() # start api timer
-    for attempt in range(3):
-        try:
-            result = generate_with_ollama(request.prompt, metadata)
+    # for attempt in range(3):
+    try:
+        result = generate_with_ollama(request.prompt, metadata)
              # Compute selector accuracy
                 # Offload the sync Playwright call to a thread
             # selector_accuracy = await run_in_threadpool(
             #         validate_actions_sync, result, metadata.get("url", "")
             # )
-            print(result)
-            break
+        print(result)
+           
     # result = sampleGenFunc(request.prompt)
-        except Exception as e:
-            if attempt == 2:
-                raise
-            time.sleep(1)  # brief back‑off
-        finally:
-            api_time_ms = int((time.perf_counter() - start) * 1000)
+    except Exception as e:
+            # if attempt == 2:
+        raise HTTPException(status_code=500, detail=f"Error generating code: {str(e)}")
+            # time.sleep(1)  # brief back‑off
+    finally:
+        api_time_ms = int((time.perf_counter() - start) * 1000)
     
     # Build the metric to save to DB:
     # metric = ExperimentMetrics(
