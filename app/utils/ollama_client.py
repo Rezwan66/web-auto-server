@@ -1,81 +1,54 @@
 import ollama
 from fastapi import HTTPException
+import json
 import os
-import httpx
 from dotenv import load_dotenv
 import time
-from app.utils.extract_code import extract_code_block
-import json
+from app.utils.extract_code import extract_code_block  # Ensure this is imported properly
 
 load_dotenv()
 
 OLLAMA_URL = os.getenv("OLLAMA_API_BASE", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("DEFAULT_MODEL", "codeqwen")
-# headers = {"Content-Type": "application/json"}
-start = time.time()
-
-async def generate_llm_response(prompt: str, language: str):
-     # Adjust the prompt depending on whether the user wants Python or JavaScript
-    if language == "python":
-        prompt = f"Generate a Selenium script in Python that automates the following task:\n{prompt}"
-    elif language == "javascript":
-        prompt = f"Generate JavaScript code that automates the following task on the frontend:\n{prompt}"
-    
-    try:
-        async with httpx.AsyncClient() as client:
-        # Send the prompt to Ollama (assuming you're using the local model)
-            response = await client.post(f"{OLLAMA_URL}/api/generate", json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}, timeout=30)
-            # Print raw response for debugging
-            print(f"Raw Ollama response: {response.status_code}, {response.text}")
-            response.raise_for_status()
-            # Safely parse JSON and extract 'response' field
-            json_data = response.json()
-            if "response" not in json_data:
-                raise HTTPException(status_code=500, detail=f"Ollama response missing 'response': {json_data}")
-            return json_data["response"]
-    except httpx.HTTPStatusError as e:
-        # Specific error handling for HTTP errors
-        print(f"HTTP error from Ollama: {e.response.status_code}, {e.response.text}")
-        raise HTTPException(status_code=e.response.status_code, detail=f"HTTP error from Ollama: {e.response.text}")
-    except httpx.RequestError as e:
-        # Request error (e.g., connection issues)
-        print(f"Request error from Ollama: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
-    except Exception as e:
-        # Any other errors
-        print(f"Unexpected error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 def generate_with_ollama(prompt: str, metadata: dict) -> dict:
     """
-    Calls ollama.chat with a detailed prompt (including metadata if given),
-    extracts the first code block, and returns { code, total_duration, model }.
+    Calls ollama.chat to generate a Selenium code based on the prompt and metadata,
+    and returns the generated code and the total duration.
     """
     try:
-        # Build the detailed prompt
+        # Build the metadata block, if metadata exists
         meta_block = f"\n\nPage metadata:\n{json.dumps(metadata, indent=2)}" if metadata else ""
+        
+        # Default URL if metadata URL is not provided
         url = metadata.get("url") if metadata else "http://localhost:5173/form"
+        
+        # Build the detailed prompt
         detailed_prompt = f"""
-            Generate a complete, runnable Python Selenium script that does exactly this:
-                1. Opens Chrome in **non-headless** mode.
-                2. Navigates to {url}.
-                3. Fills in the form fields as described below.
-                4. Clicks the submit button.
+        Generate a complete, runnable Python Selenium script that does exactly this:
+            1. Opens Chrome in **non-headless** mode.
+            2. Navigates to {url}.
+            3. Fills in the form fields as described below.
+            4. Clicks the submit button.
 
-            Task: {prompt}
+        Task: {prompt}
 
-            Instructions for the code:
-                - Use `webdriver.Chrome(options=options)` with `options.headless = False`.
-                - Begin with all necessary imports.
-                - Include `driver.get("{url}")`.
-                - Locate elements by whatever selector is mentioned in the metadata first. 
-                - Use `WebDriverWait` to wait for elements before `send_keys` or `click`.
-                - Leave the browser window open at the end so the user can watch the result.
-                - Only return the Python Selenium code (no extra commentary).
+        Instructions:
+            - Use `webdriver.Chrome(options=options)` with `options.headless = False`.
+            - Begin with all necessary imports.
+            - Include `driver.get("{url}")`.
+            - Locate elements by whatever selector is mentioned in the metadata first. 
+            - Use `WebDriverWait` to wait for elements before `send_keys` or `click`.
+            - Leave the browser window open at the end so the user can watch the result.
+            - Only return the Python Selenium code (no extra commentary).
+        
+        {meta_block}
         """
-        small_test_prompt = "Write a Python code to find the first 100 prime numbers."
-        print(f"Detailed Prompt: {detailed_prompt}")
-        # Use ollama.chat to generate a chat response
+        
+        # Log the detailed prompt for debugging purposes
+        print(f"Generated Prompt: {detailed_prompt}")
+
+        # Use Ollama chat API to generate the code
         res = ollama.chat(
             model=OLLAMA_MODEL,
             messages=[{
@@ -83,28 +56,29 @@ def generate_with_ollama(prompt: str, metadata: dict) -> dict:
                 "content": detailed_prompt
             }]
         )
-        # Log the raw response from Ollama for debugging
+        
+        # Log Ollama response for debugging
         print(f"Ollama Response: {res}")
-        # payload = json.loads(res["message"]["content"])
-        # return {"success": "success"}
-        # Extract the generated text
-        # print("ollama response -->",{res.get('model'),res.get('total_duration'), api_time_ms})
-        # Ollama’s timing metric in nanoseconds – convert to ms
-        total_ns = res.get("total_duration", 0)
-        total_ms = total_ns // 1_000_000
+
+        # Extract the generated code
         full_text = res.get("message", {}).get("content", "")
         if not full_text:
             raise HTTPException(status_code=500, detail="Ollama returned no content.")
-        # Try to extract the code block:
+        
+        # Ollama’s timing metric in nanoseconds – convert to ms
+        total_ns = res.get("total_duration", 0)
+        total_ms = total_ns // 1_000_000
+        
+        # Extract only the code from the response, if possible
         code_only = extract_code_block(full_text)
+
         return {
             "code": code_only if code_only is not None else full_text,
-            # payload: payload["actions"],
             "total_duration": total_ms,
-            "model": OLLAMA_MODEL
+            "model": res.get("model")
         }
     
     except Exception as e:
-        # Convert any exception into a proper HTTPException
+        # Catch any exceptions and log them
         print(f"Ollama Error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ollama error: {str(e)}")
